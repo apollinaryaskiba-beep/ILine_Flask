@@ -8,7 +8,7 @@ from sqlalchemy.orm import aliased
 app = Flask(__name__)
 app.secret_key = "3131_secret_key"
 
-# --- 1. ПАРАМЕТРЫ ПОДКЛЮЧЕНИЯ К POSTGRES ---
+# Подключение к PostgreSQL
 DB_USER = "postgres"
 DB_PASSWORD = "3131"
 DB_HOST = "localhost"
@@ -28,11 +28,10 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 db.init_app(app)
 
-# Иерархия должностей (чем меньше индекс, тем выше статус)
+# Иерархия должностей
 RANKS = ['ceo', 'manager', 'team lead', 'senior developer', 'developer']
 
 def get_rank(position):
-    """Превращает название должности в числовой ранг (0-4)"""
     pos = position.lower()
     for i, rank in enumerate(RANKS):
         if rank in pos:
@@ -48,7 +47,7 @@ with app.app_context():
     print(f"Успех! База подключена. Сотрудников в системе: {Employee.query.count()}")
 
 def is_circular(emp_id, new_mgr_id):
-    """Рекурсивная проверка на циклическую зависимость (защита от 'колец')"""
+    # Рекурсивная проверка на циклическую зависимость
     if not new_mgr_id:
         return False
     curr_mgr = db.session.get(Employee, new_mgr_id)
@@ -110,13 +109,12 @@ def index():
 def update_manager():
     try:
         emp_id = request.form.get("employee_id")
-        # Теперь мы ожидаем, что ID всегда придет из формы
         mgr_id = request.form.get("manager_id")
         
         emp = db.session.get(Employee, emp_id)
         if not emp: return redirect(url_for('index'))
 
-        # Если это не CEO, а ID начальника не пришел или пустой — выдаем ошибку
+        # Если это не CEO, а ID начальника пустой — выдаем ошибку
         if not mgr_id and 'ceo' not in emp.position.lower():
             flash("Ошибка: У сотрудника обязательно должен быть руководитель!", "warning")
             return redirect(url_for('index'))
@@ -124,12 +122,12 @@ def update_manager():
         if mgr_id:
             potential_boss = db.session.get(Employee, mgr_id)
             
-            # Проверка рангов (как в прошлых версиях)
+            # Проверка
             if get_rank(potential_boss.position) > get_rank(emp.position):
                 flash(f"Ошибка: {potential_boss.position} не может руководить {emp.position}!", "danger")
                 return redirect(url_for('index'))
 
-            # Проверка на цикличность и самоназначение
+            # Проверка на цикличность
             if int(emp_id) == int(mgr_id) or is_circular(emp_id, mgr_id):
                 flash("Ошибка: Недопустимая иерархия или циклическая зависимость!", "danger")
                 return redirect(url_for('index'))
